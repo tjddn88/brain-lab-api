@@ -6,3 +6,5 @@ out/
 *.log
 .env
 .DS_Store
+.env.example
+sql/
