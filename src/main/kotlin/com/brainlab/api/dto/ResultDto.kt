@@ -23,8 +23,15 @@ data class ResultRequest(
     @field:Valid
     val answers: List<AnswerItem>,
 
-    @field:NotNull(message = "풀이 시간이 필요합니다.")
-    val timeSeconds: Int
+    @field:NotBlank(message = "세션 토큰이 필요합니다.")
+    val sessionToken: String
+)
+
+data class QuestionFeedback(
+    val questionId: Long,
+    val userAnswer: Int,
+    val correctAnswer: Int,
+    val isCorrect: Boolean
 )
 
 data class ResultResponse(
@@ -36,7 +43,8 @@ data class ResultResponse(
     val rank: Int,
     val totalParticipants: Int,
     val topPercent: Double,
-    val estimatedIq: Int
+    val estimatedIq: Int,
+    val answerFeedback: List<QuestionFeedback> = emptyList()
 )
 
 data class RankingEntry(

@@ -1,7 +1,9 @@
 package com.brainlab.api
 
 import com.brainlab.api.dto.QuestionDto
+import com.brainlab.api.dto.QuestionsResponse
 import com.brainlab.common.ApiResponse
+import com.brainlab.common.SessionStore
 import com.brainlab.domain.question.QuestionService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -10,18 +12,18 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/questions")
 class QuestionController(
-    private val questionService: QuestionService
+    private val questionService: QuestionService,
+    private val sessionStore: SessionStore
 ) {
 
     @GetMapping
-    fun getQuestions(): ApiResponse<List<QuestionDto>> {
+    fun getQuestions(): ApiResponse<QuestionsResponse> {
         val questions = questionService.getRandomQuestions()
             .map { q ->
                 QuestionDto(
                     id = q.id,
                     content = q.content,
                     options = q.options,
-                    answer = q.answer,
                     difficulty = q.difficulty,
                     orderNum = q.orderNum,
                     category = q.category,
@@ -29,6 +31,7 @@ class QuestionController(
                                   else Math.round(q.correctCount.toDouble() / q.totalAttempts * 1000) / 10.0
                 )
             }
-        return ApiResponse.ok(questions)
+        val sessionToken = sessionStore.create()
+        return ApiResponse.ok(QuestionsResponse(sessionToken = sessionToken, questions = questions))
     }
 }

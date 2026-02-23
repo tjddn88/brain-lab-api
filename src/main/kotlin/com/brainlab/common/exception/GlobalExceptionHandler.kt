@@ -21,6 +21,10 @@ class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleValidation(e: ValidationException) = ApiResponse.error(e.message ?: "잘못된 요청입니다.")
 
+    @ExceptionHandler(RateLimitException::class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    fun handleRateLimit(e: RateLimitException) = ApiResponse.error(e.message ?: "요청이 너무 많습니다.")
+
     @ExceptionHandler(MethodArgumentNotValidException::class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleMethodArgumentNotValid(e: MethodArgumentNotValidException): ApiResponse<Nothing> {

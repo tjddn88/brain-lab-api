@@ -1,24 +1,55 @@
 package com.brainlab.domain.result
 
+import com.brainlab.api.dto.QuestionFeedback
 import com.brainlab.api.dto.RankingEntry
 import com.brainlab.api.dto.ResultRequest
 import com.brainlab.api.dto.ResultResponse
+import com.brainlab.common.RateLimitStore
+import com.brainlab.common.SessionStore
 import com.brainlab.common.exception.NotFoundException
+import com.brainlab.common.exception.RateLimitException
 import com.brainlab.common.exception.ValidationException
 import com.brainlab.domain.question.QuestionRepository
+import jakarta.annotation.PostConstruct
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
 @Service
 class TestResultService(
     private val resultRepository: TestResultRepository,
-    private val questionRepository: QuestionRepository
+    private val questionRepository: QuestionRepository,
+    private val sessionStore: SessionStore,
+    private val rateLimitStore: RateLimitStore
 ) {
+    private val participantCount = AtomicLong(0)
 
+    @PostConstruct
+    fun init() {
+        participantCount.set(resultRepository.count())
+    }
+
+    @CacheEvict("ranking", allEntries = true)
     @Transactional
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
+        // IP 제한 체크 (5분에 1번)
+        if (!rateLimitStore.canSubmit(ipAddress)) {
+            throw RateLimitException("5분 후에 다시 시도해주세요.")
+        }
+
+        // 세션 검증 및 서버 기준 시간 계산
+        val startTime = sessionStore.getStartTime(request.sessionToken)
+            ?: throw ValidationException("유효하지 않은 세션입니다. 테스트를 다시 시작해주세요.")
+        val timeSeconds = Duration.between(startTime, Instant.now()).seconds
+            .coerceIn(0L, 600L).toInt()
+        sessionStore.invalidate(request.sessionToken)
+
         val questionIds = request.answers.map { it.questionId }
         val questionMap = questionRepository.findAllById(questionIds).associateBy { it.id }
 
@@ -31,14 +62,15 @@ class TestResultService(
             .map { it.questionId }
         val correctCount = correctIds.size
 
-        val score = calculateScore(correctCount, request.timeSeconds)
-        val totalParticipants = resultRepository.count() + 1
-        val higherCount = resultRepository.countByScoreGreaterThan(score)
+        val score = calculateScore(correctCount, timeSeconds)
+
+        val rankInfo = resultRepository.getRankInfo(score)
+        val higherCount = rankInfo.getHigherCount()
+        val totalParticipants = participantCount.get() + 1
         val rank = (higherCount + 1).toInt()
         val topPercent = Math.round(rank.toDouble() / totalParticipants * 1000) / 10.0
         val estimatedIq = estimateIq(topPercent)
 
-        // 문제별 정답율 카운터 원자적 업데이트
         questionRepository.incrementTotalAttempts(questionIds)
         if (correctIds.isNotEmpty()) {
             questionRepository.incrementCorrectCounts(correctIds)
@@ -49,11 +81,24 @@ class TestResultService(
                 nickname = request.nickname,
                 score = score,
                 correctCount = correctCount,
-                timeSeconds = request.timeSeconds,
+                timeSeconds = timeSeconds,
                 estimatedIq = estimatedIq,
                 ipAddress = ipAddress
             )
         )
+
+        rateLimitStore.record(ipAddress)
+        participantCount.incrementAndGet()
+
+        val answerFeedback = request.answers.map { item ->
+            val correctAnswer = questionMap[item.questionId]?.answer ?: -1
+            QuestionFeedback(
+                questionId = item.questionId,
+                userAnswer = item.answer,
+                correctAnswer = correctAnswer,
+                isCorrect = item.answer != -1 && item.answer == correctAnswer
+            )
+        }
 
         return ResultResponse(
             id = saved.id,
@@ -64,7 +109,8 @@ class TestResultService(
             rank = rank,
             totalParticipants = totalParticipants.toInt(),
             topPercent = topPercent,
-            estimatedIq = saved.estimatedIq
+            estimatedIq = saved.estimatedIq,
+            answerFeedback = answerFeedback
         )
     }
 
@@ -73,8 +119,9 @@ class TestResultService(
         val result = resultRepository.findById(id)
             .orElseThrow { NotFoundException("결과를 찾을 수 없습니다. id=$id") }
 
-        val totalParticipants = resultRepository.count()
-        val higherCount = resultRepository.countByScoreGreaterThan(result.score)
+        val rankInfo = resultRepository.getRankInfo(result.score)
+        val higherCount = rankInfo.getHigherCount()
+        val totalParticipants = participantCount.get()
         val rank = (higherCount + 1).toInt()
         val topPercent = Math.round(rank.toDouble() / totalParticipants * 1000) / 10.0
 
@@ -91,6 +138,7 @@ class TestResultService(
         )
     }
 
+    @Cacheable("ranking")
     @Transactional(readOnly = true)
     fun getRanking(): List<RankingEntry> {
         val results = resultRepository.findTopResults(PageRequest.of(0, 50))

@@ -3,7 +3,10 @@ package com.brainlab.domain.question
 import org.springframework.stereotype.Service
 
 @Service
-class QuestionService(private val questionRepository: QuestionRepository) {
+class QuestionService(
+    private val questionRepository: QuestionRepository,
+    private val questionCacheService: QuestionCacheService
+) {
 
     companion object {
         // 카테고리 출제 순서 고정
@@ -17,7 +20,7 @@ class QuestionService(private val questionRepository: QuestionRepository) {
      * - 같은 난이도 내에서는 랜덤 선택
      */
     fun getRandomQuestions(): List<Question> {
-        val byCategory = questionRepository.findAll().groupBy { it.category }
+        val byCategory = questionCacheService.findAll().groupBy { it.category }
 
         val selected = mutableListOf<Question>()
 
