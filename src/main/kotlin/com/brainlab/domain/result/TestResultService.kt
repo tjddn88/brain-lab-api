@@ -160,14 +160,14 @@ class TestResultService(
         timeSeconds: Int
     ): Int {
         // 난이도별 배점: 1=50점, 2=100점, 3=150점
-        val baseScore = correctIds.sumOf { id ->
+        val baseScore = correctIds.map { id ->
             when (questionMap[id]?.difficulty) {
                 1 -> 50
                 2 -> 100
                 3 -> 150
                 else -> 100
             }
-        }
+        }.sum()
         // 시간보너스: 5분(300초) 기준, 빠를수록 최대 600점
         val timeBonus = max(0, (300 - timeSeconds) * 2)
         return baseScore + timeBonus
