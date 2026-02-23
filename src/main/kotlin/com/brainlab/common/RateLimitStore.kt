@@ -3,18 +3,39 @@ package com.brainlab.common
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
-import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 @Component
 class RateLimitStore {
 
-    private val cache: Cache<String, Instant> = Caffeine.newBuilder()
-        .expireAfterWrite(5, TimeUnit.MINUTES)
+    // 예외 IP (개발자 IP, 로컬호스트)
+    private val exemptIps = setOf(
+        "0:0:0:0:0:0:0:1",
+        "::1",
+        "127.0.0.1",
+        "210.179.225.99"
+    )
+
+    // key: "ip:YYYY-MM-DD(KST)", TTL: 25시간 (날짜가 바뀌어도 안전하게 만료)
+    private val cache: Cache<String, Boolean> = Caffeine.newBuilder()
+        .expireAfterWrite(25, TimeUnit.HOURS)
         .maximumSize(100000)
         .build()
 
-    fun canSubmit(ip: String): Boolean = cache.getIfPresent(ip) == null
+    private fun todayKey(ip: String): String {
+        val today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString()
+        return "$ip:$today"
+    }
 
-    fun record(ip: String) = cache.put(ip, Instant.now())
+    fun canSubmit(ip: String): Boolean {
+        if (ip in exemptIps) return true
+        return cache.getIfPresent(todayKey(ip)) == null
+    }
+
+    fun record(ip: String) {
+        if (ip in exemptIps) return
+        cache.put(todayKey(ip), true)
+    }
 }

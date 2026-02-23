@@ -40,7 +40,7 @@ class TestResultService(
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
         // IP 제한 체크 (5분에 1번)
         if (!rateLimitStore.canSubmit(ipAddress)) {
-            throw RateLimitException("5분 후에 다시 시도해주세요.")
+            throw RateLimitException("오늘은 이미 제출하셨습니다. 내일 다시 도전해주세요.")
         }
 
         // 세션 검증 및 서버 기준 시간 계산
