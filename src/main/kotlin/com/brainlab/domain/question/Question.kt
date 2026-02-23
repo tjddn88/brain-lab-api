@@ -42,8 +42,10 @@ class Question(
 
 @Converter
 class StringListConverter : AttributeConverter<List<String>, String> {
-    private val mapper = ObjectMapper()
-    private val type = object : TypeReference<List<String>>() {}
+    companion object {
+        private val mapper = ObjectMapper()
+        private val type = object : TypeReference<List<String>>() {}
+    }
 
     override fun convertToDatabaseColumn(attribute: List<String>): String =
         mapper.writeValueAsString(attribute)

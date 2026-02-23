@@ -1,7 +1,7 @@
 package com.brainlab.domain.feedback
 
 import jakarta.persistence.*
-import java.time.OffsetDateTime
+import java.time.Instant
 
 @Entity
 @Table(name = "feedbacks")
@@ -16,5 +16,5 @@ class Feedback(
     val ipAddress: String? = null,
 
     @Column(name = "created_at")
-    val createdAt: OffsetDateTime = OffsetDateTime.now()
+    val createdAt: Instant = Instant.now()
 )

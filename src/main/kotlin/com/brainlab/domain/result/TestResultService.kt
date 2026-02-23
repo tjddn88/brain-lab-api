@@ -11,7 +11,6 @@ import java.util.UUID
 import com.brainlab.common.exception.RateLimitException
 import com.brainlab.common.exception.ValidationException
 import com.brainlab.domain.question.QuestionRepository
-import jakarta.annotation.PostConstruct
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
@@ -20,7 +19,6 @@ import java.time.format.DateTimeFormatter
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 
 @Service
@@ -30,17 +28,10 @@ class TestResultService(
     private val sessionStore: SessionStore,
     private val rateLimitStore: RateLimitStore
 ) {
-    private val participantCount = AtomicLong(0)
-
-    @PostConstruct
-    fun init() {
-        participantCount.set(resultRepository.count())
-    }
-
     @CacheEvict("ranking", allEntries = true)
     @Transactional
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
-        // IP 제한 체크 (5분 쿨다운, 위반 시 당일 전체 차단)
+        // IP 제한 체크 (2분 쿨다운, 위반 시 당일 전체 차단)
         val rejectReason = rateLimitStore.submitRejectReason(ipAddress)
         if (rejectReason != null) throw RateLimitException(rejectReason)
 
@@ -49,7 +40,6 @@ class TestResultService(
             ?: throw ValidationException("유효하지 않은 세션입니다. 테스트를 다시 시작해주세요.")
         val timeSeconds = Duration.between(startTime, Instant.now()).seconds
             .coerceIn(0L, 600L).toInt()
-        sessionStore.invalidate(request.sessionToken)
 
         val questionIds = request.answers.map { it.questionId }
         val questionMap = questionRepository.findAllById(questionIds).associateBy { it.id }
@@ -67,7 +57,8 @@ class TestResultService(
 
         val rankInfo = resultRepository.getRankInfo(score)
         val higherCount = rankInfo.getHigherCount()
-        val totalParticipants = participantCount.get() + 1
+        // getRankInfo는 save 이전 호출 → 현재 제출 건은 미포함이므로 +1
+        val totalParticipants = (rankInfo.getTotal() + 1).coerceAtLeast(1)
         val rank = (higherCount + 1).toInt()
         val topPercent = Math.round(rank.toDouble() / totalParticipants * 1000) / 10.0
         val estimatedIq = estimateIq(score)
@@ -88,8 +79,9 @@ class TestResultService(
             )
         )
 
+        // save 성공 후 세션 무효화 → DB 오류 시 유저가 재시도 가능
+        sessionStore.invalidate(request.sessionToken)
         rateLimitStore.record(ipAddress)
-        participantCount.incrementAndGet()
 
         val answerFeedback = request.answers.map { item ->
             val correctAnswer = questionMap[item.questionId]?.answer ?: -1
@@ -124,7 +116,8 @@ class TestResultService(
 
         val rankInfo = resultRepository.getRankInfo(result.score)
         val higherCount = rankInfo.getHigherCount()
-        val totalParticipants = participantCount.get()
+        // 이미 저장된 결과 조회 → DB의 실제 총 참여자수 사용
+        val totalParticipants = rankInfo.getTotal().coerceAtLeast(1)
         val rank = (higherCount + 1).toInt()
         val topPercent = Math.round(rank.toDouble() / totalParticipants * 1000) / 10.0
 

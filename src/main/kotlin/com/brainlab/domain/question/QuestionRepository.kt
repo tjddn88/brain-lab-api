@@ -6,8 +6,6 @@ import org.springframework.data.jpa.repository.Query
 
 interface QuestionRepository : JpaRepository<Question, Long> {
 
-    fun findAllByOrderByOrderNumAsc(): List<Question>
-
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Question q SET q.totalAttempts = q.totalAttempts + 1 WHERE q.id IN :ids")
     fun incrementTotalAttempts(ids: List<Long>)
