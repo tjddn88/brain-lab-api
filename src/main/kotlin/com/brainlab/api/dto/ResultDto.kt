@@ -55,6 +55,21 @@ data class RankingEntry(
     val score: Int,
     val correctCount: Int,
     val timeSeconds: Int,
-    val estimatedIq: Int,
-    val createdAt: String
+    val estimatedIq: Int
+)
+
+data class PercentileEntry(
+    val topPercent: Int,
+    val rank: Int,
+    val nickname: String,
+    val score: Int,
+    val correctCount: Int,
+    val timeSeconds: Int,
+    val estimatedIq: Int
+)
+
+data class RankingResponse(
+    val topEntries: List<RankingEntry>,
+    val percentileEntries: List<PercentileEntry>,
+    val totalCount: Int
 )

@@ -1,7 +1,9 @@
 package com.brainlab.domain.result
 
+import com.brainlab.api.dto.PercentileEntry
 import com.brainlab.api.dto.QuestionFeedback
 import com.brainlab.api.dto.RankingEntry
+import com.brainlab.api.dto.RankingResponse
 import com.brainlab.api.dto.ResultRequest
 import com.brainlab.api.dto.ResultResponse
 import com.brainlab.common.RateLimitStore
@@ -14,8 +16,6 @@ import com.brainlab.domain.question.QuestionRepository
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
@@ -26,11 +26,15 @@ class TestResultService(
     private val resultRepository: TestResultRepository,
     private val questionRepository: QuestionRepository,
     private val sessionStore: SessionStore,
-    private val rateLimitStore: RateLimitStore
+    private val rateLimitStore: RateLimitStore,
+    private val nicknameValidator: com.brainlab.common.NicknameValidator
 ) {
     @CacheEvict("ranking", allEntries = true)
     @Transactional
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
+        // 닉네임 비속어 검사
+        nicknameValidator.validate(request.nickname)
+
         // IP 제한 체크 (2분 쿨다운, 위반 시 당일 전체 차단)
         val rejectReason = rateLimitStore.submitRejectReason(ipAddress)
         if (rejectReason != null) throw RateLimitException(rejectReason)
@@ -137,20 +141,38 @@ class TestResultService(
 
     @Cacheable("ranking")
     @Transactional(readOnly = true)
-    fun getRanking(): List<RankingEntry> {
-        val formatter = DateTimeFormatter.ofPattern("M/dd").withZone(ZoneId.of("Asia/Seoul"))
-        val results = resultRepository.findTopResults()
-        return results.mapIndexed { index, r ->
+    fun getRanking(): RankingResponse {
+        val all = resultRepository.findAllDeduped()
+        val total = all.size
+
+        val topEntries = all.take(10).mapIndexed { index, r ->
             RankingEntry(
                 rank = index + 1,
                 nickname = r.nickname,
                 score = r.score,
                 correctCount = r.correctCount,
                 timeSeconds = r.timeSeconds,
-                estimatedIq = r.estimatedIq,
-                createdAt = formatter.format(r.createdAt)
+                estimatedIq = r.estimatedIq
             )
         }
+
+        val seenPositions = mutableSetOf<Int>()
+        val percentileEntries = listOf(30, 50, 70, 90).mapNotNull { pct ->
+            val pos = (total * pct / 100.0).toInt().coerceIn(10, total - 1)
+            if (pos < 10 || pos >= total || !seenPositions.add(pos)) return@mapNotNull null
+            val r = all[pos]
+            PercentileEntry(
+                topPercent = pct,
+                rank = pos + 1,
+                nickname = r.nickname,
+                score = r.score,
+                correctCount = r.correctCount,
+                timeSeconds = r.timeSeconds,
+                estimatedIq = r.estimatedIq
+            )
+        }
+
+        return RankingResponse(topEntries = topEntries, percentileEntries = percentileEntries, totalCount = total)
     }
 
     private fun calculateScore(

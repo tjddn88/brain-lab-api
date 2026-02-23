@@ -29,13 +29,12 @@ interface TestResultRepository : JpaRepository<TestResult, Long> {
         nativeQuery = true,
         value = """
             SELECT * FROM (
-                SELECT DISTINCT ON (nickname) *
+                SELECT DISTINCT ON (ip_address) *
                 FROM test_results
-                ORDER BY nickname, score DESC, time_seconds ASC
+                ORDER BY ip_address, score DESC, time_seconds ASC
             ) sub
             ORDER BY score DESC, time_seconds ASC
-            LIMIT 50
         """
     )
-    fun findTopResults(): List<TestResult>
+    fun findAllDeduped(): List<TestResult>
 }

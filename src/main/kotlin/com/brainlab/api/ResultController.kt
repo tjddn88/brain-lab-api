@@ -1,6 +1,6 @@
 package com.brainlab.api
 
-import com.brainlab.api.dto.RankingEntry
+import com.brainlab.api.dto.RankingResponse
 import com.brainlab.api.dto.ResultRequest
 import com.brainlab.api.dto.ResultResponse
 import com.brainlab.common.ApiResponse
@@ -33,7 +33,7 @@ class ResultController(
     }
 
     @GetMapping("/ranking")
-    fun getRanking(): ApiResponse<List<RankingEntry>> {
+    fun getRanking(): ApiResponse<RankingResponse> {
         val ranking = resultService.getRanking()
         return ApiResponse.ok(ranking)
     }
