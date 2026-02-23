@@ -26,9 +26,9 @@ class ResultController(
         return ApiResponse.ok(result)
     }
 
-    @GetMapping("/{id}")
-    fun getResult(@PathVariable id: Long): ApiResponse<ResultResponse> {
-        val result = resultService.getResult(id)
+    @GetMapping("/{shareToken}")
+    fun getResult(@PathVariable shareToken: String): ApiResponse<ResultResponse> {
+        val result = resultService.getResult(shareToken)
         return ApiResponse.ok(result)
     }
 

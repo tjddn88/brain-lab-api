@@ -7,6 +7,7 @@ import com.brainlab.api.dto.ResultResponse
 import com.brainlab.common.RateLimitStore
 import com.brainlab.common.SessionStore
 import com.brainlab.common.exception.NotFoundException
+import java.util.UUID
 import com.brainlab.common.exception.RateLimitException
 import com.brainlab.common.exception.ValidationException
 import com.brainlab.domain.question.QuestionRepository
@@ -102,6 +103,7 @@ class TestResultService(
 
         return ResultResponse(
             id = saved.id,
+            shareToken = saved.shareToken.toString(),
             nickname = saved.nickname,
             score = saved.score,
             correctCount = saved.correctCount,
@@ -115,9 +117,9 @@ class TestResultService(
     }
 
     @Transactional(readOnly = true)
-    fun getResult(id: Long): ResultResponse {
-        val result = resultRepository.findById(id)
-            .orElseThrow { NotFoundException("결과를 찾을 수 없습니다. id=$id") }
+    fun getResult(shareToken: String): ResultResponse {
+        val result = resultRepository.findByShareToken(UUID.fromString(shareToken))
+            ?: throw NotFoundException("결과를 찾을 수 없습니다.")
 
         val rankInfo = resultRepository.getRankInfo(result.score)
         val higherCount = rankInfo.getHigherCount()
@@ -127,6 +129,7 @@ class TestResultService(
 
         return ResultResponse(
             id = result.id,
+            shareToken = result.shareToken.toString(),
             nickname = result.nickname,
             score = result.score,
             correctCount = result.correctCount,

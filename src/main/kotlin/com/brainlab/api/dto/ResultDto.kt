@@ -36,6 +36,7 @@ data class QuestionFeedback(
 
 data class ResultResponse(
     val id: Long,
+    val shareToken: String,
     val nickname: String,
     val score: Int,
     val correctCount: Int,

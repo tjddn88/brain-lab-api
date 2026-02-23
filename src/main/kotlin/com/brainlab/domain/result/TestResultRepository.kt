@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.util.UUID
 
 interface RankInfo {
     fun getHigherCount(): Long
@@ -11,6 +12,8 @@ interface RankInfo {
 }
 
 interface TestResultRepository : JpaRepository<TestResult, Long> {
+
+    fun findByShareToken(shareToken: UUID): TestResult?
 
     @Query(
         nativeQuery = true,
