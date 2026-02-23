@@ -40,10 +40,9 @@ class TestResultService(
     @CacheEvict("ranking", allEntries = true)
     @Transactional
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
-        // IP 제한 체크 (5분에 1번)
-        if (!rateLimitStore.canSubmit(ipAddress)) {
-            throw RateLimitException("오늘은 이미 제출하셨습니다. 내일 다시 도전해주세요.")
-        }
+        // IP 제한 체크 (5분 쿨다운, 위반 시 당일 전체 차단)
+        val rejectReason = rateLimitStore.submitRejectReason(ipAddress)
+        if (rejectReason != null) throw RateLimitException(rejectReason)
 
         // 세션 검증 및 서버 기준 시간 계산
         val startTime = sessionStore.getStartTime(request.sessionToken)
