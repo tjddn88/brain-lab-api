@@ -46,12 +46,10 @@ class RateLimitStore {
     }
 
     fun canSubmitFeedback(ip: String): Boolean {
-        if (ip in exemptIps) return true
         return feedbackCache.getIfPresent(ip) == null
     }
 
     fun recordFeedback(ip: String) {
-        if (ip in exemptIps) return
         feedbackCache.put(ip, true)
     }
 }
