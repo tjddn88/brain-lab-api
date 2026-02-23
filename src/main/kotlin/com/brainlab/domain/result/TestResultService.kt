@@ -62,14 +62,14 @@ class TestResultService(
             .map { it.questionId }
         val correctCount = correctIds.size
 
-        val score = calculateScore(correctCount, timeSeconds)
+        val score = calculateScore(correctIds, questionMap, timeSeconds)
 
         val rankInfo = resultRepository.getRankInfo(score)
         val higherCount = rankInfo.getHigherCount()
         val totalParticipants = participantCount.get() + 1
         val rank = (higherCount + 1).toInt()
         val topPercent = Math.round(rank.toDouble() / totalParticipants * 1000) / 10.0
-        val estimatedIq = estimateIq(topPercent)
+        val estimatedIq = estimateIq(score)
 
         questionRepository.incrementTotalAttempts(questionIds)
         if (correctIds.isNotEmpty()) {
@@ -154,20 +154,25 @@ class TestResultService(
         }
     }
 
-    private fun calculateScore(correctCount: Int, timeSeconds: Int): Int {
-        val baseScore = correctCount * 100
-        val timeBonus = max(0, (600 - timeSeconds) / 6)
+    private fun calculateScore(
+        correctIds: List<Long>,
+        questionMap: Map<Long, com.brainlab.domain.question.Question>,
+        timeSeconds: Int
+    ): Int {
+        // 난이도별 배점: 1=50점, 2=100점, 3=150점
+        val baseScore = correctIds.sumOf { id ->
+            when (questionMap[id]?.difficulty) {
+                1 -> 50
+                2 -> 100
+                3 -> 150
+                else -> 100
+            }
+        }
+        // 시간보너스: 5분(300초) 기준, 빠를수록 최대 600점
+        val timeBonus = max(0, (300 - timeSeconds) * 2)
         return baseScore + timeBonus
     }
 
-    private fun estimateIq(topPercent: Double): Int = when {
-        topPercent <= 2.0  -> 130
-        topPercent <= 5.0  -> 125
-        topPercent <= 10.0 -> 119
-        topPercent <= 25.0 -> 110
-        topPercent <= 50.0 -> 100
-        topPercent <= 75.0 -> 90
-        topPercent <= 90.0 -> 81
-        else               -> 75
-    }
+    private fun estimateIq(score: Int): Int =
+        (75 + score / 25).coerceIn(75, 150)
 }
