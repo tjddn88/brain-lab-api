@@ -19,8 +19,14 @@ class RateLimitStore {
     )
 
     // key: "ip:YYYY-MM-DD(KST)", TTL: 25시간 (날짜가 바뀌어도 안전하게 만료)
-    private val cache: Cache<String, Boolean> = Caffeine.newBuilder()
+    private val submitCache: Cache<String, Boolean> = Caffeine.newBuilder()
         .expireAfterWrite(25, TimeUnit.HOURS)
+        .maximumSize(100000)
+        .build()
+
+    // 피드백 rate limit: IP당 1시간 1회
+    private val feedbackCache: Cache<String, Boolean> = Caffeine.newBuilder()
+        .expireAfterWrite(1, TimeUnit.HOURS)
         .maximumSize(100000)
         .build()
 
@@ -31,11 +37,21 @@ class RateLimitStore {
 
     fun canSubmit(ip: String): Boolean {
         if (ip in exemptIps) return true
-        return cache.getIfPresent(todayKey(ip)) == null
+        return submitCache.getIfPresent(todayKey(ip)) == null
     }
 
     fun record(ip: String) {
         if (ip in exemptIps) return
-        cache.put(todayKey(ip), true)
+        submitCache.put(todayKey(ip), true)
+    }
+
+    fun canSubmitFeedback(ip: String): Boolean {
+        if (ip in exemptIps) return true
+        return feedbackCache.getIfPresent(ip) == null
+    }
+
+    fun recordFeedback(ip: String) {
+        if (ip in exemptIps) return
+        feedbackCache.put(ip, true)
     }
 }
