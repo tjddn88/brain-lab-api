@@ -31,7 +31,8 @@ data class QuestionFeedback(
     val questionId: Long,
     val userAnswer: Int,
     val correctAnswer: Int,
-    val isCorrect: Boolean
+    val isCorrect: Boolean,
+    val category: String = ""
 )
 
 data class ResultResponse(
@@ -54,5 +55,6 @@ data class RankingEntry(
     val score: Int,
     val correctCount: Int,
     val timeSeconds: Int,
-    val estimatedIq: Int
+    val estimatedIq: Int,
+    val createdAt: String
 )

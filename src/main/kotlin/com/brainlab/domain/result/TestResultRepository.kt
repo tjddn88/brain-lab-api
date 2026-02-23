@@ -1,6 +1,5 @@
 package com.brainlab.domain.result
 
-import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -26,6 +25,17 @@ interface TestResultRepository : JpaRepository<TestResult, Long> {
     )
     fun getRankInfo(@Param("score") score: Int): RankInfo
 
-    @Query("SELECT r FROM TestResult r ORDER BY r.score DESC, r.timeSeconds ASC")
-    fun findTopResults(pageable: Pageable): List<TestResult>
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT * FROM (
+                SELECT DISTINCT ON (nickname) *
+                FROM test_results
+                ORDER BY nickname, score DESC, time_seconds ASC
+            ) sub
+            ORDER BY score DESC, time_seconds ASC
+            LIMIT 50
+        """
+    )
+    fun findTopResults(): List<TestResult>
 }

@@ -7,7 +7,8 @@ data class QuestionDto(
     val difficulty: Int,
     val orderNum: Int,
     val category: String,
-    val correctRate: Double?
+    val correctRate: Double?,
+    val explanation: String?
 )
 
 data class QuestionsResponse(

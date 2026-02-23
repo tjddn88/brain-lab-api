@@ -32,7 +32,8 @@ class QuestionController(
                     orderNum = q.orderNum,
                     category = q.category,
                     correctRate = if (q.totalAttempts == 0) null
-                                  else Math.round(q.correctCount.toDouble() / q.totalAttempts * 1000) / 10.0
+                                  else Math.round(q.correctCount.toDouble() / q.totalAttempts * 1000) / 10.0,
+                    explanation = q.explanation
                 )
             }
         val sessionToken = sessionStore.create()

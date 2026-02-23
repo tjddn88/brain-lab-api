@@ -14,8 +14,9 @@ import com.brainlab.domain.question.QuestionRepository
 import jakarta.annotation.PostConstruct
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.Instant
@@ -97,7 +98,8 @@ class TestResultService(
                 questionId = item.questionId,
                 userAnswer = item.answer,
                 correctAnswer = correctAnswer,
-                isCorrect = item.answer != -1 && item.answer == correctAnswer
+                isCorrect = item.answer != -1 && item.answer == correctAnswer,
+                category = questionMap[item.questionId]?.category ?: ""
             )
         }
 
@@ -144,7 +146,8 @@ class TestResultService(
     @Cacheable("ranking")
     @Transactional(readOnly = true)
     fun getRanking(): List<RankingEntry> {
-        val results = resultRepository.findTopResults(PageRequest.of(0, 50))
+        val formatter = DateTimeFormatter.ofPattern("M/dd").withZone(ZoneId.of("Asia/Seoul"))
+        val results = resultRepository.findTopResults()
         return results.mapIndexed { index, r ->
             RankingEntry(
                 rank = index + 1,
@@ -152,7 +155,8 @@ class TestResultService(
                 score = r.score,
                 correctCount = r.correctCount,
                 timeSeconds = r.timeSeconds,
-                estimatedIq = r.estimatedIq
+                estimatedIq = r.estimatedIq,
+                createdAt = formatter.format(r.createdAt)
             )
         }
     }

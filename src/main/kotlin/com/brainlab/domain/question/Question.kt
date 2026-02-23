@@ -34,7 +34,10 @@ class Question(
     val correctCount: Int = 0,
 
     @Column(name = "total_attempts", nullable = false)
-    val totalAttempts: Int = 0
+    val totalAttempts: Int = 0,
+
+    @Column(nullable = true, columnDefinition = "TEXT")
+    val explanation: String? = null
 )
 
 @Converter
