@@ -158,7 +158,7 @@ class TestResultService(
 
         val seenPositions = mutableSetOf<Int>()
         val percentileEntries = listOf(25, 50, 75).mapNotNull { pct ->
-            val pos = (total * pct / 100.0).toInt().coerceIn(10, total - 1)
+            val pos = (total * pct / 100.0).toInt().coerceIn(10, maxOf(10, total - 1))
             if (pos < 10 || pos >= total || !seenPositions.add(pos)) return@mapNotNull null
             val r = all[pos]
             PercentileEntry(
