@@ -8,9 +8,9 @@ import java.util.concurrent.TimeUnit
 @Component
 class RateLimitStore {
 
-    // 2분 쿨다운: 제출 응답 대기 중 중복 제출 방지
+    // 1분 쿨다운: 제출 응답 대기 중 중복 제출 방지
     private val submitRecentCache: Cache<String, Boolean> = Caffeine.newBuilder()
-        .expireAfterWrite(2, TimeUnit.MINUTES)
+        .expireAfterWrite(1, TimeUnit.MINUTES)
         .maximumSize(100000)
         .build()
 

@@ -13,6 +13,7 @@ import java.util.UUID
 import com.brainlab.common.exception.RateLimitException
 import com.brainlab.common.exception.ValidationException
 import com.brainlab.domain.question.QuestionRepository
+import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
@@ -29,15 +30,20 @@ class TestResultService(
     private val rateLimitStore: RateLimitStore,
     private val nicknameValidator: com.brainlab.common.NicknameValidator
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @CacheEvict("ranking", allEntries = true)
     @Transactional
     fun saveResult(request: ResultRequest, ipAddress: String): ResultResponse {
         // 닉네임 비속어 검사
         nicknameValidator.validate(request.nickname)
 
-        // IP 제한 체크 (2분 쿨다운, 위반 시 당일 전체 차단)
+        // IP 제한 체크 (1분 쿨다운)
         val rejectReason = rateLimitStore.submitRejectReason(ipAddress)
-        if (rejectReason != null) throw RateLimitException(rejectReason)
+        if (rejectReason != null) {
+            log.info("[RateLimit] 제출 차단 - ip={} reason={}", ipAddress, rejectReason)
+            throw RateLimitException(rejectReason)
+        }
 
         // 세션 검증 및 서버 기준 시간 계산
         val startTime = sessionStore.getStartTime(request.sessionToken)
