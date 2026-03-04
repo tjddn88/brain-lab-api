@@ -16,5 +16,8 @@ class Feedback(
     val ipAddress: String? = null,
 
     @Column(name = "created_at")
-    val createdAt: Instant = Instant.now()
+    val createdAt: Instant = Instant.now(),
+
+    @Column(length = 50)
+    val source: String? = "brainlab"
 )
